@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>BNI 타이머</title>
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BNI 타이머">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;background:#000;height:100%}
+body{margin:0;font-size:14px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+textarea,input,select{-webkit-user-select:text;user-select:text}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;500;700&family=Roboto:wght@900&display=swap">
+<style>
+/* 한 화면 구성 : 제목 → 큰 7세그먼트 숫자 → 조작 버튼 → 프리셋 버튼 */
+/* 검은 바탕 + 노란 숫자 한 가지 테마로 고정 */
+:root{
+  --bg:#000000; --fg:#ffd21f; --muted:#8a8a8a; --text:#eeeeee;
+  --blue:#0a8fd9; --yellow:#f9c862; --green:#4aae6e; --red:#ff4b3a;
+  --chip:#2b2b2b; --chip-fg:#e6e6e6; --chip-on:#ffd21f; --chip-on-fg:#000000;
+  --panel:#151515; --line:#333333; color-scheme:dark;
+  --font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);margin:0;overflow:hidden}
+.app{height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:3vh 3vh;gap:2vh}
+.display{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.display svg{width:100%;height:100%;display:block;transform:skewX(-6deg)}
+/* 굵은 고딕 숫자 : 남는 영역의 너비·높이에 맞춰 최대로 키움 */
+.display{container-type:size}
+.num{font-family:"Roboto","Arial Black",sans-serif;font-weight:900;color:var(--fg);line-height:1;white-space:nowrap;
+  font-size:min(48cqw,118cqh);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.num .col{display:inline-block;transform:translateY(-.05em)}
+.coloff .col{opacity:0}
+.alarm .num{color:var(--red)}
+.alarm.flash .num{color:#000000}
+.seg{fill:transparent;transition:fill .08s}
+.seg.on{fill:var(--fg)}
+.colon{fill:var(--fg)}
+.alarm .seg.on,.alarm .colon{fill:var(--red)}
+.paused .colon{opacity:.35}
+.coloff .colon{opacity:0}
+/* 시간 초과 : 1초마다 화면 전체가 빨간색으로 번쩍임 */
+.app.flash{background:var(--red)}
+.alarm.flash .seg.on,.alarm.flash .colon{fill:#000000}
+
+.row{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px}
+.row .gap{width:clamp(4px,1vw,18px)}
+button{font-family:var(--font);cursor:pointer;border:0}
+/* 버튼 크기는 화면 폭에 따라 줄어듦 — 아이패드 가로(1024px)에서도 한 줄 */
+.ctl{width:clamp(96px,9vw,140px);height:64px;padding:4px 6px;font-size:clamp(14px,1.3vw,16px);font-weight:500;color:#fff;line-height:1.2;
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;word-break:keep-all}
+.ctl{position:relative}
+/* 단축키 표시 : 버튼 오른쪽 위 작은 글자 */
+.kbd{position:absolute;top:4px;right:5px;font-family:var(--font);font-size:11px;font-weight:700;line-height:1;padding:2px 4px;border:1px solid currentColor;border-radius:3px;opacity:.7;pointer-events:none}
+
+.row .ctl{border-radius:8px} /* 하단 버튼은 모서리를 살짝 둥글게 */
+.ctl small{font-size:clamp(11px,.95vw,13px);font-weight:400;opacity:.85}
+.ctl.edit{background:var(--blue)} .ctl.reset{background:var(--yellow)} .ctl.go{background:var(--green)}
+.ctl.try{background:#6b55c9}
+.ctl.try.armed{outline:3px solid #ffffff;outline-offset:3px;animation:armblink 1s steps(2,start) infinite}
+@keyframes armblink{to{background:#8f7be6}}
+.row.testing .pre{outline:2px dashed #ffffff;outline-offset:2px}
+.ctl.go.running{background:var(--muted)} .ctl.go.ringing{background:var(--red)}
+.ctl:hover{filter:brightness(1.06)} .ctl:active{transform:translateY(1px)}
+.ctl.pre{background:var(--chip);color:var(--chip-fg);font-variant-numeric:tabular-nums}
+/* 자주 쓰는 30초·45초는 고정 색, 선택되면 노란 테두리로 표시 */
+.ctl.pre.p30,.ctl.pre.p30.on{background:#ffffff;color:#000000}
+.ctl.pre.p45,.ctl.pre.p45.on{background:#ffd21f;color:#000000}
+.ctl.pre.p30.on{outline:3px solid #ffd21f;outline-offset:3px}
+.ctl.pre.p45.on{outline:3px solid #ffffff;outline-offset:3px}
+
+.pre.on{background:var(--chip-on);color:var(--chip-on-fg)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.bottom{display:flex;flex-direction:column;align-items:center;gap:14px}
+
+.editor{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;background:var(--panel);border:1px solid var(--line);padding:10px 14px}
+.editor input{width:64px;font-size:20px;padding:6px 8px;text-align:center;font-family:var(--font);font-variant-numeric:tabular-nums;background:var(--bg);color:var(--fg);border:1px solid var(--line)}
+.editor label{font-size:15px;color:var(--text)}
+.editor .ok{background:var(--blue);color:#fff;padding:8px 14px;font-size:15px}
+.editor select{font-size:15px;padding:6px 8px;font-family:var(--font);background:var(--bg);color:var(--fg);border:1px solid var(--line)}
+.editor .test{background:var(--chip);color:var(--chip-fg);padding:8px 12px;font-size:15px}
+.editor .sep{width:1px;height:26px;background:var(--line)}
+.editor{max-width:min(960px,100%);width:100%;box-sizing:border-box}
+.editor .qbox{flex-basis:100%;display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.editor textarea{width:100%;box-sizing:border-box;font-family:var(--font);font-size:14px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:6px 8px;resize:vertical}
+.editor .qbtns{display:flex;gap:8px}
+
+/* 발표 순서 줄 : 패스 + 현재 발표자 + 다음 4명 */
+.queue{display:flex;align-items:center;justify-content:center;gap:6px;max-width:100%}
+.queue:empty{display:none}
+.qpass,.qnext{border-radius:999px}
+.qpass{background:var(--red)} .qnext{background:var(--green)}
+.ctl.qnext{width:clamp(110px,11vw,210px);height:clamp(64px,6vw,80px);font-size:clamp(22px,2.2vw,30px);font-weight:700}
+.ctl.qprev{border-radius:999px;background:var(--blue);width:clamp(80px,7vw,120px);height:clamp(52px,4.6vw,60px)}
+.ctl.qprev:disabled{opacity:.35;cursor:default}
+.qprev .kbd,.qnext .kbd{top:50%;right:12px;transform:translateY(-50%)} /* 타원 안쪽 가운데 높이 */
+.qprev .kbd{right:9px}
+.ctl.qprev{padding-right:26px} .ctl.qnext{padding-right:30px} /* 글자를 왼쪽으로 비켜 단축키 자리 확보 */
+.ctl.qnext small{font-size:clamp(12px,1vw,15px)}
+.queue .qsp{width:clamp(6px,1.5vw,48px)}
+.qnav{width:clamp(36px,3.5vw,48px);height:60px;background:var(--chip);color:var(--chip-fg);font-size:22px;font-weight:700}
+.qnav.qfirst{width:clamp(42px,4vw,56px);font-size:16px;letter-spacing:-4px;padding-right:6px}
+.qnav:disabled{opacity:.3;cursor:default}
+.qcard.past{opacity:.45}
+.qcard .qtag{font-size:.45em;font-weight:500;background:#000000;color:#ffffff;padding:1px 4px}
+.qcard{height:60px;width:clamp(88px,10vw,176px);padding:0 8px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  font-family:var(--font);font-weight:700;font-size:clamp(16px,1.8vw,30px);color:#000000;white-space:nowrap;overflow:hidden}
+.qcard.s30{background:#ffffff} .qcard.s45{background:#ffd21f} .qcard.sx{background:#c9c9c9}
+.qcard .qn{font-size:1em;font-weight:700}
+.qcard.cur{opacity:1;outline:4px solid var(--green);outline-offset:3px}
+.queue.idle .qcard.cur{outline-color:var(--muted)}
+.qend{color:var(--text);font-size:18px;padding:0 8px;white-space:nowrap}
+.editor .qhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.qstat{font-size:13px;color:var(--muted)} .qstat.err{color:var(--red)} .qstat.ok{color:var(--green)}
+.qedit{max-height:min(44vh,420px);overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 12px;padding:4px;border:1px solid var(--line);background:var(--bg)}
+.qrow{display:flex;align-items:center;gap:4px;min-width:0}
+.qrow .n{width:24px;flex:none;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.editor .qrow input.nm{width:auto;flex:1;min-width:0;font-size:16px;text-align:left;padding:4px 6px}
+.editor .qrow select{padding:4px;font-size:15px}
+.qrow.t30 select{background:#ffffff;color:#000000} .qrow.t45 select{background:#ffd21f;color:#000000}
+.qrow .mv{background:var(--chip);color:var(--chip-fg);width:28px;height:30px;font-size:13px;padding:0;flex:none}
+.qrow .mv.del{color:var(--red)}
+.editor .cloud{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.editor .cloud input{width:150px;font-size:15px;text-align:left}
+.editor .cloud .hint{font-size:12px;color:var(--muted)}
+.qpaste{display:flex;flex-direction:column;gap:6px}
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--panel);color:var(--text);border:1px solid var(--line);padding:10px 16px;font-size:15px;border-radius:8px;z-index:20}
+.editor .cancel{background:transparent;color:var(--muted);padding:8px 10px;font-size:15px}
+
+.fs{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));background:transparent;color:var(--muted);font-size:13px;padding:6px 8px}
+@media (max-width:900px){.row .gap{display:none}}
+@media (prefers-reduced-motion:reduce){.alarm .display svg{animation:none}}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <div class="display"><svg id="lcd" viewBox="-16 -4 406 188" aria-hidden="true" hidden></svg><div class="num" id="num" role="img" aria-label="남은 시간"></div></div>
+  <div class="bottom">
+    <div class="editor" id="editor" hidden>
+      <input id="inMin" type="number" min="0" max="9" inputmode="numeric" aria-label="분"><label for="inMin">분</label>
+      <input id="inSec" type="number" min="0" max="59" inputmode="numeric" aria-label="초"><label for="inSec">초</label>
+      <span class="sep"></span>
+      <label for="selSound">소리</label><select id="selSound"></select>
+      <label for="selRepeat">반복</label><select id="selRepeat"><option value="once">한 번</option><option value="15">15초 동안</option><option value="loop">끌 때까지</option></select>
+      <button class="test" id="btnTest">테스트</button>
+      <span class="sep"></span>
+      <button class="ok" id="editOk">적용</button><button class="cancel" id="editCancel">취소</button>
+      <div class="qbox">
+        <div class="qhead"><label>발표 순서</label><span class="qstat" id="qStat"></span></div>
+        <div class="qedit" id="qEdit"></div>
+        <div class="qbtns">
+          <button class="test" id="qAdd">+ 한 명 추가</button>
+          <button class="ok" id="qApply">명단 저장</button>
+          <button class="test" id="qReload">새로 불러오기</button>
+          <button class="test" id="qRestart">처음부터 다시</button>
+          <button class="test" id="qPasteT">엑셀 붙여넣기</button>
+        </div>
+        <div class="qpaste" id="qPasteBox" hidden>
+          <label for="qText">엑셀에서 순번·이름·시간 열을 복사해 붙여넣고 아래 버튼을 누르세요</label>
+          <textarea id="qText" rows="6"></textarea>
+          <div class="qbtns"><button class="test" id="qPasteApply">붙여넣은 내용으로 바꾸기</button></div>
+        </div>
+        <div class="cloud" id="cloud" hidden>
+          <label for="ghName">저장하는 사람</label><input id="ghName" maxlength="20" autocomplete="off">
+          <label for="ghKey">편집 키</label><input id="ghKey" type="password" autocomplete="off">
+          <span class="hint">편집 키는 이 기기에만 저장됩니다</span>
+        </div>
+      </div>
+    </div>
+    <div class="queue" id="queue"></div>
+    <div class="toast" id="toast" hidden></div>
+    <div class="row">
+      <button class="ctl pre p30" data-s="30" data-sound="buzzer">30초<span class="kbd">3</span></button>
+      <button class="ctl pre p45" data-s="45" data-sound="buzzer">45초<span class="kbd">4</span></button>
+      <button class="ctl pre" data-s="60" data-sound="bell">1분<small>(추천, 감사, 멤버십)</small><span class="kbd">1</span></button>
+      <button class="ctl pre" data-s="300" data-sound="digital">5분<small>(피처 프레젠테이션)</small><span class="kbd">5</span></button>
+      <button class="ctl pre" data-s="480" data-sound="digital">8분<small>(네트워킹 교육)</small><span class="kbd">8</span></button>
+      <span class="gap" aria-hidden="true"></span>
+      <button class="ctl try" id="btnTry">테스트<small id="tryName">(오르골)</small><span class="kbd">T</span></button>
+      <button class="ctl edit" id="btnEdit">타이머 수정<span class="kbd">E</span></button>
+      <button class="ctl reset" id="btnReset">재설정<span class="kbd">R</span></button>
+      <button class="ctl go" id="btnGo"><span id="goLabel">시작</span><span class="kbd">Space</span></button>
+    </div>
+  </div>
+  <button class="fs" id="btnFs">전체 화면 (W)</button>
+</div>
+
+<script>
+(function(){
+  // ---------- 7세그먼트 그리기 ----------
+  const W=100, T=16, G=3, Y0=8, YM=90, Y1=172, X0=8, X1=92;
+  function hseg(x1,x2,y){const h=T/2;return `${x1},${y} ${x1+h},${y-h} ${x2-h},${y-h} ${x2},${y} ${x2-h},${y+h} ${x1+h},${y+h}`}
+  function vseg(x,y1,y2){const h=T/2;return `${x},${y1} ${x+h},${y1+h} ${x+h},${y2-h} ${x},${y2} ${x-h},${y2-h} ${x-h},${y1+h}`}
+  const SEGS=[ // a b c d e f g
+    hseg(X0+G,X1-G,Y0), vseg(X1,Y0+G,YM-G), vseg(X1,YM+G,Y1-G),
+    hseg(X0+G,X1-G,Y1), vseg(X0,YM+G,Y1-G), vseg(X0,Y0+G,YM-G), hseg(X0+G,X1-G,YM)];
+  const MAP=["1111110","0110000","1101101","1111001","0110011","1011011","1011111","1110000","1111111","1111011"];
+  const offsets=[0,160,275]; // 분 한 자리 + 콜론 + 초 두 자리
+  const svg=document.getElementById('lcd'); const NS='http://www.w3.org/2000/svg';
+  const digits=offsets.map(ox=>{
+    const g=document.createElementNS(NS,'g'); g.setAttribute('transform',`translate(${ox},0)`);
+    const polys=SEGS.map(p=>{const e=document.createElementNS(NS,'polygon');e.setAttribute('points',p);e.setAttribute('class','seg');g.appendChild(e);return e});
+    svg.appendChild(g); return polys;
+  });
+  [[52],[118]].forEach(([y])=>{const r=document.createElementNS(NS,'rect');r.setAttribute('x',122);r.setAttribute('y',y);r.setAttribute('width',18);r.setAttribute('height',18);r.setAttribute('class','colon');svg.appendChild(r)});
+  function setDigit(i,n){const m=MAP[n];digits[i].forEach((p,k)=>p.classList.toggle('on',m[k]==='1'))}
+
+  // ---------- 상태 ----------
+  const num=document.getElementById('num'); // 굵은 고딕 표시 (7세그먼트 svg는 숨김, 되돌릴 때 hidden만 바꾸면 됨)
+  const app=document.getElementById('app'), title={set textContent(v){}}; // 제목 표시는 없어짐
+  const btnGo=document.getElementById('btnGo'), btnReset=document.getElementById('btnReset'), btnEdit=document.getElementById('btnEdit');
+  const editor=document.getElementById('editor'), inMin=document.getElementById('inMin'), inSec=document.getElementById('inSec');
+  const calm=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; // 깜빡임을 꺼 둔 기기에서는 번쩍임 생략
+  let total=30, remainMs=30000, endAt=0, running=false, ringing=false, over=false, tick=null, wake=null;
+
+  try{const s=parseInt(localStorage.getItem('timer-total'),10); if(s>0&&s<600){total=s;remainMs=s*1000}}catch(e){}
+
+  function label(s){const m=Math.floor(s/60), r=s%60; return (m?m+'분':'')+(m&&r?' ':'')+(r||!m?r+'초':'')}
+  function render(){
+    // 시간이 다 되면(over) 0:00부터 초과 시간을 올려 세움 (최대 9:59)
+    const el=over?Date.now()-endAt:0;
+    const s=Math.min(599, over?Math.floor(el/1000):Math.ceil(remainMs/1000)), m=Math.floor(s/60), r=s%60;
+    setDigit(0,m);setDigit(1,Math.floor(r/10));setDigit(2,r%10);
+    num.innerHTML=`${m}<span class="col">:</span>${String(r).padStart(2,'0')}`;
+    num.classList.toggle('coloff', (running && (remainMs%1000)<500) || (over && (el%1000)>=500));
+    num.setAttribute('aria-label',over?`초과 시간 ${m}분 ${r}초`:`남은 시간 ${m}분 ${r}초`);
+    svg.classList.toggle('coloff', (running && (remainMs%1000)<500) || (over && (el%1000)>=500)); // 1초 주기로 깜빡임
+    app.classList.toggle('flash', over && !calm && (el%1000)<500);
+    const mmss=`${m}:${String(r).padStart(2,'0')}`;
+    document.title = over ? `+${mmss} · 시간 초과` : running ? `${mmss} · 타이머` : '수업 타이머';
+  }
+  function setTotal(s,temp){
+    stopAlarm(); pause(); testKey=null; total=s; remainMs=s*1000;
+    title.textContent=label(s)+' 타이머';
+    document.querySelectorAll('.pre').forEach(b=>b.classList.toggle('on',+b.dataset.s===s));
+    if(!temp){ try{localStorage.setItem('timer-total',s)}catch(e){} } // 테스트용 2초는 저장하지 않음
+    updateBtn(); render();
+  }
+  function updateBtn(){
+    btnGo.classList.toggle('running',running); btnGo.classList.toggle('ringing',ringing);
+    document.getElementById('goLabel').textContent = ringing ? '알람 끄기' : running ? '일시정지' : (remainMs<total*1000 && remainMs>0 ? '계속' : '시작');
+    app.classList.toggle('paused',!running && remainMs<total*1000 && remainMs>0);
+  }
+
+  // ---------- 진행 ----------
+  function start(){
+    if(remainMs<=0) remainMs=total*1000;
+    unlockAudio(); running=true; endAt=Date.now()+remainMs;
+    clearInterval(tick); tick=setInterval(step,100); keepAwake(true); updateBtn(); render();
+  }
+  function pause(){ if(running){remainMs=Math.max(0,endAt-Date.now())} running=false; clearInterval(tick); keepAwake(false); updateBtn(); render() }
+  function step(){
+    if(!over){
+      remainMs=Math.max(0,endAt-Date.now());
+      if(remainMs<=0){ running=false; over=true; startAlarm(); } // 시계는 멈추지 않고 초과 시간을 잰
+    }
+    render();
+  }
+  function reset(){ stopAlarm(); pause(); remainMs=0; updateBtn(); render() } // 0:00 으로. 시작을 누르면 지금 설정된 시간으로 다시 시작
+
+  // ---------- 알람 ----------
+  let ctx=null, master=null, alarmTimer=null, alarmStop=null;
+  let soundKey='xylophone', repeatMode='15', testKey=null; // testKey : 테스트 버튼으로 잠깐 쓰는 소리
+  try{ soundKey=localStorage.getItem('timer-sound')||soundKey; repeatMode=localStorage.getItem('timer-repeat')||repeatMode }catch(e){}
+  function unlockAudio(){ try{ if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.connect(ctx.destination) } if(ctx.state==='suspended') ctx.resume(); }catch(e){} }
+  function cutSound(){ if(!ctx) return; master.disconnect(); master=ctx.createGain(); master.connect(ctx.destination) } // 예약된 소리를 즉시 끊음
+  function beep(t,f){ const o=ctx.createOscillator(), g=ctx.createGain(); o.type='square'; o.frequency.value=f;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.18,t+.01); g.gain.setValueAtTime(.18,t+.14); g.gain.linearRampToValueAtTime(0,t+.16);
+    o.connect(g).connect(master); o.start(t); o.stop(t+.18) }
+  // 배음 [배수, 세기, 잔향(초)] 을 감쇠하는 사인파로 여러 악기 소리를 흉내 냄
+  function tone(t,f,parts,peak){ parts.forEach(([r,a,d])=>{ const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=f*r;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(peak*a,t+.005); g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    o.connect(g).connect(master); o.start(t); o.stop(t+d+.05) }) }
+  function buzz(t,dur){ [220,226].forEach(f=>{ const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sawtooth'; o.frequency.value=f;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.12,t+.01); g.gain.setValueAtTime(.12,t+dur-.03); g.gain.linearRampToValueAtTime(0,t+dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t+dur+.02) }) }
+  const N=n=>440*Math.pow(2,(n-69)/12);
+  const SOUNDS={
+    xylophone:{name:'실로폰',len:1.6,play:t=>[84,88,91,96].forEach((n,i)=>tone(t+i*.16,N(n),[[1,1,.5],[3.93,.35,.12],[9.5,.12,.05]],.35))},
+    marimba:{name:'마림바',len:1.9,play:t=>[72,76,79,76,72].forEach((n,i)=>tone(t+i*.18,N(n),[[1,1,.8],[4,.25,.15]],.4))},
+    musicbox:{name:'오르골',len:2.3,play:t=>[88,91,96,95,91,93,88].forEach((n,i)=>tone(t+i*.2,N(n),[[1,1,.9],[2,.3,.3],[5,.1,.08]],.22))},
+    chime:{name:'딩동',len:2.6,play:t=>{tone(t,N(76),[[1,1,1.6],[2,.2,.6],[3,.08,.3]],.35);tone(t+.55,N(72),[[1,1,1.8],[2,.2,.6],[3,.08,.3]],.35)}},
+    bell:{name:'종소리',len:3,play:t=>[0,1.2].forEach(d=>tone(t+d,N(76),[[.56,.5,2.5],[.92,.4,2],[1.19,.3,1.6],[1.71,.25,1.2],[2,.5,1.4],[2.74,.2,.8],[3,.15,.6]],.25))},
+    digital:{name:'디지털 알람',len:1.3,play:t=>[0,.22,.44,.66].forEach(d=>beep(t+d,1046))},
+    buzzer:{name:'버저',len:1.3,play:t=>buzz(t,.8)}
+  };
+  if(!SOUNDS[soundKey]) soundKey='xylophone';
+  function ring(key){ if(!ctx) return; SOUNDS[key||testKey||soundKey].play(ctx.currentTime+.03) }
+  function startAlarm(){
+    ringing=true; app.classList.add('alarm'); keepAwake(true); ring();
+    if(repeatMode!=='once') alarmTimer=setInterval(()=>ring(),SOUNDS[testKey||soundKey].len*1000);
+    if(repeatMode==='15') alarmStop=setTimeout(()=>{clearInterval(alarmTimer)},15000); // 소리는 멈추고 화면 표시는 유지
+    updateBtn();
+  }
+  function stopAlarm(){ if(ringing) cutSound(); if(over){ over=false; clearInterval(tick) } ringing=false; clearInterval(alarmTimer); clearTimeout(alarmStop); app.classList.remove('alarm','flash'); keepAwake(false); updateBtn() }
+
+  // ---------- 화면 꺼짐 방지 ----------
+  async function keepAwake(on){
+    try{ if(on && !wake && navigator.wakeLock){ wake=await navigator.wakeLock.request('screen'); wake.addEventListener('release',()=>wake=null) }
+         else if(!on && wake && !ringing && !running){ await wake.release(); wake=null } }catch(e){}
+  }
+
+  // ---------- 이벤트 ----------
+  btnGo.addEventListener('click',()=>{ if(ringing){stopAlarm(); if(qmode){ advance('done'); return } remainMs=total*1000; updateBtn(); render(); return}
+    if(!running && qmode && qi<Q.length){ view=Math.max(0,Math.min(qi,Q.length-5)); renderQ() } // 시작·계속 시 현재 발표자를 맨 앞에
+    running?pause():start() });
+  btnReset.addEventListener('click',reset);
+  // 테스트 : 누를 때마다 버저 → 종소리 → 디지털 알람 순서로 2초 타이머 시작
+  // 테스트 : 한 번 누르면 대기 상태
+  //   → 1분·5분·8분 : 그 버튼의 알람 소리로 2초 테스트
+  //   → 테스트 한 번 더 : 오르골로 2초 테스트
+  //   → 그 밖의 버튼 : 대기 취소하고 그 버튼 기능 실행
+  const btnTry=document.getElementById('btnTry'), tryName=document.getElementById('tryName'), rowEl=document.querySelector('.row');
+  let armed=false;
+  function arm(on){ armed=on; btnTry.classList.toggle('armed',on); rowEl.classList.toggle('testing',on); tryName.textContent=on?'(시간 버튼 / T)':'(오르골)' }
+  function runTest(key){ arm(false); unlockAudio(); setTotal(2,true); testKey=key; qmode=false; renderQ(); start() }
+  btnTry.addEventListener('click',()=>{ armed ? runTest('musicbox') : arm(true) });
+  document.addEventListener('click',e=>{
+    if(!armed || e.target.closest('#btnTry')) return;
+    const b=e.target.closest('.pre');
+    // 30초·45초·1분·5분·8분 모두
+    if(b){ e.stopPropagation(); e.preventDefault(); runTest(b.dataset.sound); return }
+    arm(false); // 다른 곳을 누르면 테스트 대기만 취소하고 원래 기능은 그대로 실행
+  },true);
+  // 프리셋 : 시간과 알람 소리를 함께 맞추고 바로 시작
+  document.querySelectorAll('.pre').forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.sound;
+    if(k && SOUNDS[k]){ soundKey=k; selSound.value=k; try{localStorage.setItem('timer-sound',k)}catch(e){} }
+    setTotal(+b.dataset.s); qmode=false; renderQ(); start();
+  }));
+  btnEdit.addEventListener('click',()=>{ inMin.value=Math.floor(total/60); inSec.value=total%60; editor.hidden=!editor.hidden; if(!editor.hidden) openEditor(); if(!editor.hidden) inMin.focus() });
+  function applyEdit(){
+    const m=Math.max(0,Math.min(9,parseInt(inMin.value,10)||0)), s=Math.max(0,Math.min(59,parseInt(inSec.value,10)||0));
+    if(m*60+s<=0){ inSec.focus(); return }
+    editor.hidden=true; setTotal(m*60+s); qmode=false; renderQ();
+  }
+  const selSound=document.getElementById('selSound'), selRepeat=document.getElementById('selRepeat');
+  Object.entries(SOUNDS).forEach(([k,v])=>{ const o=document.createElement('option'); o.value=k; o.textContent=v.name; selSound.appendChild(o) });
+  selSound.value=soundKey; selRepeat.value=repeatMode;
+  selSound.addEventListener('change',()=>{ soundKey=selSound.value; try{localStorage.setItem('timer-sound',soundKey)}catch(e){} unlockAudio(); cutSound(); ring() });
+  selRepeat.addEventListener('change',()=>{ repeatMode=selRepeat.value; try{localStorage.setItem('timer-repeat',repeatMode)}catch(e){} });
+  document.getElementById('btnTest').addEventListener('click',()=>{ unlockAudio(); cutSound(); ring(selSound.value) });
+  document.getElementById('editOk').addEventListener('click',applyEdit);
+  document.getElementById('editCancel').addEventListener('click',()=>editor.hidden=true);
+  [inMin,inSec].forEach(i=>i.addEventListener('keydown',e=>{ if(e.key==='Enter') applyEdit(); if(e.key==='Escape') editor.hidden=true }));
+  document.addEventListener('keydown',e=>{
+    if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if(e.key==='Escape' && armed){ arm(false); return }
+    if(e.ctrlKey||e.metaKey||e.altKey) return;
+    if(e.repeat && !/^Arrow(Left|Right)$/.test(e.code)) return; // 좌우 커서만 누르고 있으면 계속 이동
+    // 키 자리(code)로 판단하므로 한글 입력 상태에서도 작동
+    const K={Space:'#btnGo',KeyN:'#btnNext',KeyB:'#btnPrev',Digit3:'.pre[data-s="30"]',Digit4:'.pre[data-s="45"]',Digit1:'.pre[data-s="60"]',
+      Digit5:'.pre[data-s="300"]',Digit8:'.pre[data-s="480"]',KeyT:'#btnTry',KeyE:'#btnEdit',KeyW:'#btnFs',KeyR:'#btnReset',
+      ArrowLeft:'.qnav[data-d="-1"]',ArrowRight:'.qnav[data-d="1"]',ArrowUp:'.qnav[data-jump="-10"]',ArrowDown:'.qnav[data-jump="10"]'};
+    const code=e.code.replace(/^Numpad(\d)$/,'Digit$1'), sel=K[code]; if(!sel) return;
+    const el=document.querySelector(sel); if(!el||el.hidden||el.disabled) return;
+    e.preventDefault(); el.click();
+  });
+  const btnFs=document.getElementById('btnFs');
+  btnFs.addEventListener('click',async()=>{ try{ document.fullscreenElement ? await document.exitFullscreen() : await document.documentElement.requestFullscreen() }catch(e){ btnFs.hidden=true } });
+  document.addEventListener('fullscreenchange',()=>btnFs.textContent=document.fullscreenElement?'전체 화면 끄기 (W)':'전체 화면 (W)');
+  if(!document.documentElement.requestFullscreen) btnFs.hidden=true;
+
+  // ---------- 발표 순서 ----------
+  const DEF='이경천45 박진균30 임홍준45 윤정찬30 허재영45 정호성30 최재원30 송창근30 최상묵45 김기태45 엄덕흠30 조현영45 김태헌30 박치헌45 강서은45 이현수45 문다경45 이영록30 문형기45 박현주30 김현철30 윤희권45 권태진30 최원재30 나용현30 한기만45 박은서45 이원상45 오경란45 윤창용30 임수진30 백수영45 김진현30 김종민30 장우진30 김경석30 김태우30 주한기30 이유은30 이희영30 서혜진30 박근배45 전지연30 한상훈30 한준희30 조아영30'
+    .split(' ').map(s=>({name:s.slice(0,-2),sec:+s.slice(-2)}));
+  let Q=DEF, qi=0, qst=[], qmode=false;
+  try{ const sv=JSON.parse(localStorage.getItem('timer-queue-v2')||'null'); if(sv&&Array.isArray(sv.list)){ Q=sv.list; qi=sv.qi||0; qst=sv.qst||[] } }catch(e){}
+  const qBox=document.getElementById('queue'), qText=document.getElementById('qText');
+  function saveQ(){ try{localStorage.setItem('timer-queue-v2',JSON.stringify({list:Q,qi,qst}))}catch(e){} }
+  function secText(s){ return s%60===0 ? `${s/60}분` : `${s}초` }
+  function fmtQ(){ return Q.map((it,i)=>`${i+1}\t${it.name}\t${secText(it.sec)}`).join('\n') }
+  // 한 줄에서 '30초' '1분' 같은 시간과 이름을 찾음. 시간이 없는 줄(제목 줄)은 건너뜀
+  function parseQ(txt){ const out=[]; txt.split(/\r?\n/).forEach(line=>{
+    const t=line.match(/(\d+)\s*(초|분)/); if(!t) return;
+    const sec=t[2]==='분'?+t[1]*60:+t[1]; if(sec<=0||sec>599) return;
+    const name=line.replace(t[0],' ').replace(/^\s*\d+[.)]?(?=\s)/,'').trim().replace(/\s+/g,' ');
+    if(name) out.push({name,sec}); }); return out }
+  function qSound(sec){ const b=document.querySelector(`.pre[data-s="${sec}"]`); return b?b.dataset.sound:'digital' }
+  function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+  let view=0; // 화면에 보이는 5명 중 첫 사람의 순번 (화살표로 앞뒤 이동)
+  function renderQ(){
+    if(!Q.length){ qBox.innerHTML=''; return }
+    qBox.classList.toggle('idle',!qmode);
+    view=Math.max(0,Math.min(view,Q.length-1));
+    const nextTen=Math.floor(view/10)*10+10;
+    let h=`<button class="ctl qprev" id="btnPrev" ${qi<=0?'disabled':''}>이전<span class="kbd">B</span></button>`
+         +`<button class="ctl qnext" id="btnNext">다음<small>(${Math.min(qi+1,Q.length)}/${Q.length})</small><span class="kbd">N</span></button>`
+         +`<span class="qsp"></span><button class="qnav qfirst" data-jump="-10" aria-label="10명 앞으로" ${view<=0?'disabled':''}>◀◀</button><button class="qnav" data-d="-1" aria-label="앞 사람 보기" ${view<=0?'disabled':''}>◀</button>`;
+    if(qi>=Q.length) h+=`<span class="qend">발표 끝</span>`;
+    for(let i=view;i<Math.min(Q.length,view+5);i++){ const it=Q[i], c=it.sec===30?'s30':it.sec===45?'s45':'sx';
+      const tag=qst[i]==='pass'&&i<qi?'<span class="qtag">패스</span>':'';
+      h+=`<button class="qcard ${c}${i===qi?' cur':''}${i<qi?' past':''}" data-i="${i}"><span class="qn">${i+1}</span>${esc(it.name)}${tag}</button>` }
+    h+=`<button class="qnav" data-d="1" aria-label="뒤 사람 보기" ${view+5>=Q.length?'disabled':''}>▶</button>`
+       +`<button class="qnav qfirst" data-jump="10" aria-label="10명 뒤로" ${nextTen>=Q.length?'disabled':''}>▶▶</button>`;
+    qBox.innerHTML=h;
+  }
+  function loadSpeaker(){
+    if(qi>=Q.length){ qmode=false; saveQ(); renderQ(); return }
+    const it=Q[qi]; soundKey=qSound(it.sec); selSound.value=soundKey;
+    setTotal(it.sec); qmode=true; view=Math.max(0,Math.min(qi,Q.length-5)); saveQ(); renderQ();
+  }
+  function advance(mark){ if(qi<Q.length){ qst[qi]=mark; qi++ } loadSpeaker() }
+  qBox.addEventListener('click',e=>{
+    // 패스 : 결석 처리하고 다음 사람 카운트를 바로 시작
+    if(e.target.closest('.qpass')){ if(qi<Q.length){ const started=qmode&&(running||over||remainMs<total*1000); advance(started?'done':'pass'); if(qi<Q.length) start() } return }
+    // 다음 : 지금 사람을 끝내고 다음 사람 카운트를 바로 시작
+    if(e.target.closest('.qnext')){ if(qi<Q.length){ advance('done'); if(qi<Q.length) start() } return }
+    // 이전 : 실수로 넘긴 경우 앞 사람으로 되돌려 카운트를 바로 시작
+    if(e.target.closest('.qprev')){ if(qi>0){ qi--; qst[qi]=''; loadSpeaker(); start() } return }
+    // ◀ ▶ : 한 명씩 / ◀◀ ▶▶ : 1·11·21·31…번으로 맞춰 10명씩 (보기만 이동)
+    const n=e.target.closest('.qnav'); if(n){
+      if(n.dataset.jump==='10') view=Math.floor(view/10)*10+10;
+      else if(n.dataset.jump==='-10') view = view%10 ? view-view%10 : view-10;
+      else view+=+n.dataset.d;
+      renderQ(); return }
+    // 이름 : 그 사람으로 이동해 바로 시작
+    const c=e.target.closest('.qcard'); if(c){ qi=+c.dataset.i; loadSpeaker(); start() }
+  });
+  // ---------- 명단 편집 + GitHub 공유 저장 ----------
+  // 명단은 GitHub 저장소의 roster.json 한 파일에 저장. 읽기는 누구나, 저장은 '편집 키'(GitHub 토큰)가 있는 사람만.
+  const GH={owner:'hevnbon', repo:'bni-timer', path:'roster.json', branch:'main'};
+  const cloudOn=!GH.owner.startsWith('__');
+  const API=`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
+  const qEdit=document.getElementById('qEdit'), qStat=document.getElementById('qStat'), toastEl=document.getElementById('toast');
+  const ghName=document.getElementById('ghName'), ghKey=document.getElementById('ghKey');
+  const TIMES=[30,45,60,300,480];
+  let draft=[], dirty=false, sha=null, etag=null, remoteStamp=null, remotePending=null, saving=false;
+  const ls={get:k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+  ghName.value=ls.get('gh-name'); ghKey.value=ls.get('gh-key');
+  ghName.addEventListener('input',()=>ls.set('gh-name',ghName.value.trim()));
+  ghKey.addEventListener('input',()=>ls.set('gh-key',ghKey.value.trim()));
+  document.getElementById('cloud').hidden=!cloudOn;
+
+  function stat(t,kind){ qStat.textContent=t; qStat.className='qstat'+(kind?' '+kind:'') }
+  let toastT=null;
+  function toast(t){ toastEl.textContent=t; toastEl.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>toastEl.hidden=true,3500) }
+  function clean(list){ return (Array.isArray(list)?list:[]).map(it=>({name:String(it&&it.name||'').trim().slice(0,30), sec:Math.round(+(it&&it.sec))}))
+    .filter(it=>it.name && it.sec>0 && it.sec<600) }
+  const enc=s=>{ const b=new TextEncoder().encode(s); let r=''; b.forEach(x=>r+=String.fromCharCode(x)); return btoa(r) };
+  const dec=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt(0)));
+  const hm=iso=>{ try{ const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` }catch(e){ return '' } };
+
+  // 명단이 바뀌어도 지금 발표 순서는 유지. 카운트 중이 아니면 현재 발표자 시간도 새 값으로 다시 세팅
+  function applyList(list){
+    Q=list; qst=qst.slice(0,Q.length); qi=Math.min(qi,Q.length);
+    if(qmode && !running && !over && qi<Q.length) loadSpeaker(); else { saveQ(); renderQ() }
+  }
+
+  // ----- 편집 화면 -----
+  function renderEdit(){
+    qEdit.innerHTML=draft.map((it,i)=>`<div class="qrow ${it.sec===30?'t30':it.sec===45?'t45':''}" data-i="${i}">
+      <span class="n">${i+1}</span><input class="nm" value="${esc(it.name)}" aria-label="${i+1}번 이름">
+      <select aria-label="${i+1}번 시간">${(TIMES.includes(it.sec)?TIMES:[...TIMES,it.sec]).map(t=>`<option value="${t}" ${t===it.sec?'selected':''}>${secText(t)}</option>`).join('')}</select>
+      <button class="mv" data-a="up" aria-label="위로">▲</button><button class="mv" data-a="down" aria-label="아래로">▼</button><button class="mv del" data-a="del" aria-label="삭제">✕</button></div>`).join('');
+  }
+  function openEditor(){
+    draft=Q.map(it=>({...it})); dirty=false; renderEdit();
+    document.getElementById('qPasteBox').hidden=true;
+    stat(cloudOn ? (remoteStamp?`공유 명단 · 마지막 저장 ${hm(remoteStamp.at)}${remoteStamp.by?' ('+remoteStamp.by+')':''}`:'공유 명단') : '이 기기에만 저장됩니다');
+    if(cloudOn) pull(true);
+  }
+  function markDirty(){ dirty=true; stat('저장하지 않은 변경이 있습니다') }
+  qEdit.addEventListener('input',e=>{ const r=e.target.closest('.qrow'); if(!r) return;
+    if(e.target.classList.contains('nm')){ draft[+r.dataset.i].name=e.target.value; markDirty() } });
+  qEdit.addEventListener('change',e=>{ const r=e.target.closest('.qrow'); if(!r||e.target.tagName!=='SELECT') return;
+    const sec=+e.target.value; draft[+r.dataset.i].sec=sec; r.classList.toggle('t30',sec===30); r.classList.toggle('t45',sec===45); markDirty() });
+  qEdit.addEventListener('click',e=>{ const b=e.target.closest('.mv'); if(!b) return; const i=+b.closest('.qrow').dataset.i;
+    if(b.dataset.a==='up'&&i>0) [draft[i-1],draft[i]]=[draft[i],draft[i-1]];
+    else if(b.dataset.a==='down'&&i<draft.length-1) [draft[i+1],draft[i]]=[draft[i],draft[i+1]];
+    else if(b.dataset.a==='del') draft.splice(i,1);
+    else return;
+    markDirty(); renderEdit() });
+  document.getElementById('qAdd').addEventListener('click',()=>{ draft.push({name:'',sec:30}); markDirty(); renderEdit();
+    const last=qEdit.querySelector('.qrow:last-child .nm'); if(last){ last.focus(); last.scrollIntoView({block:'nearest'}) } });
+  document.getElementById('qPasteT').addEventListener('click',()=>{ const b=document.getElementById('qPasteBox'); b.hidden=!b.hidden; if(!b.hidden){ qText.value=fmtQ(); qText.focus() } });
+  document.getElementById('qPasteApply').addEventListener('click',()=>{ const l=parseQ(qText.value); if(!l.length){ stat('붙여넣은 내용에서 이름과 시간을 찾지 못했습니다','err'); return }
+    draft=l; markDirty(); renderEdit(); document.getElementById('qPasteBox').hidden=true; stat(`${l.length}명을 불러왔습니다. '명단 저장'을 눌러야 반영됩니다`) });
+  document.getElementById('qRestart').addEventListener('click',()=>{ qi=0; qst=[]; editor.hidden=true; loadSpeaker() });
+  document.getElementById('qReload').addEventListener('click',()=>{ if(!cloudOn){ openEditor(); return } dirty=false; etag=null; pull(true,true) });
+
+  // ----- 저장 -----
+  document.getElementById('qApply').addEventListener('click',async()=>{
+    const list=clean(draft);
+    if(!list.length){ stat('명단이 비어 있습니다','err'); return }
+    if(!cloudOn){ applyList(list); dirty=false; editor.hidden=true; toast('명단을 저장했습니다'); return }
+    const key=ghKey.value.trim();
+    if(!key){ stat('편집 키를 넣어야 저장할 수 있습니다','err'); ghKey.focus(); return }
+    if(saving) return; saving=true; stat('저장 중…');
+    try{
+      if(!sha) await pull(false);
+      const at=new Date().toISOString(), by=ghName.value.trim().slice(0,20);
+      const body={message:`명단 수정${by?' - '+by:''}`, content:enc(JSON.stringify({updated_at:at,updated_by:by,list},null,1)), branch:GH.branch};
+      if(sha) body.sha=sha;
+      const r=await fetch(API,{method:'PUT',headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(r.ok){ const j=await r.json(); sha=j.content.sha; etag=null; remoteStamp={at,by}; dirty=false;
+        applyList(list); editor.hidden=true; toast('명단을 저장했습니다. 다른 기기에도 곧 반영됩니다'); return }
+      if(r.status===409||r.status===422){ stat("다른 사람이 먼저 저장했습니다. '새로 불러오기'를 누른 뒤 다시 고쳐 주세요",'err'); return }
+      if(r.status===401||r.status===403||r.status===404){ stat('편집 키가 맞지 않거나 저장 권한이 없습니다','err'); return }
+      stat(`저장하지 못했습니다 (오류 ${r.status}). 잠시 뒤 다시 눌러 주세요`,'err');
+    }catch(e){ stat('인터넷 연결을 확인한 뒤 다시 눌러 주세요','err') }
+    finally{ saving=false }
+  });
+
+  // ----- 불러오기 : 20초마다 확인. 바뀐 게 없으면 GitHub가 304로 답해 사용량에 거의 잡히지 않음 -----
+  async function pull(fromEditor, force){
+    if(!cloudOn) return;
+    const h={'Accept':'application/vnd.github+json'}; const key=ghKey.value.trim();
+    if(key) h.Authorization='Bearer '+key;
+    if(etag && !force) h['If-None-Match']=etag;
+    let data=null;
+    try{
+      const r=await fetch(`${API}?ref=${GH.branch}`,{headers:h,cache:'no-store'});
+      if(r.status===304) return;
+      if(r.ok){ const j=await r.json(); etag=r.headers.get('ETag'); sha=j.sha; data=JSON.parse(dec(j.content)) }
+      else if(!key){ const r2=await fetch(`${GH.path}?t=${Date.now()}`,{cache:'no-store'}); if(r2.ok) data=await r2.json() } // 사용량 초과 시 사이트에 올라간 사본
+    }catch(e){ if(fromEditor) stat('공유 명단을 불러오지 못했습니다. 이 기기에 있는 명단을 보여 드립니다','err'); return }
+    if(!data) return;
+    const list=clean(data.list); if(!list.length) return;
+    const stamp={at:data.updated_at||'', by:data.updated_by||''};
+    const changed=!remoteStamp || stamp.at!==remoteStamp.at || force;
+    const firstLoad=!remoteStamp; remoteStamp=stamp;
+    if(!changed) return;
+    if(!editor.hidden && dirty){ remotePending=list; stat("다른 사람이 명단을 바꿨습니다. '새로 불러오기'를 누르면 최신 명단으로 바뀝니다",'err'); return }
+    const same=JSON.stringify(list)===JSON.stringify(Q);
+    if(!same) applyList(list);
+    if(!editor.hidden){ draft=Q.map(it=>({...it})); renderEdit(); stat(`공유 명단 · 마지막 저장 ${hm(stamp.at)}${stamp.by?' ('+stamp.by+')':''}`,force?'ok':'') }
+    if(!same && !firstLoad) toast(`명단이 업데이트되었습니다${stamp.by?' ('+stamp.by+')':''}`);
+  }
+  if(cloudOn){
+    pull(false);
+    setInterval(()=>{ if(document.visibilityState==='visible') pull(false) },20000);
+    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pull(false) });
+  }
+
+  setTotal(total);
+  if(Q.length && qi<Q.length) loadSpeaker(); else renderQ();
+})();
+</script>
+
+<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}</script>
+</body>
+</html>
