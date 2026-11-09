@@ -405,7 +405,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
       const tag=qst[i]==='pass'&&i<qi?'<span class="qtag">패스</span>':'';
       h+=`<button class="qcard ${c}${i===qi?' cur':''}${i<qi?' past':''}" data-i="${i}"><span class="qn">${i+1}</span>${esc(it.name)}${tag}</button>` }
     h+=`<button class="qnav" data-d="1" aria-label="뒤 사람 보기" ${view+5>=Q.length?'disabled':''}>▶</button>`
-       +`<button class="qnav qfirst" data-jump="10" aria-label="10명 뒤로" ${nextTen>=Q.length?'disabled':''}>▶▶</button>`;
+       +`<button class="qnav qfirst" data-jump="10" aria-label="10명 뒤로" ${view>=Q.length-5?'disabled':''}>▶▶</button>`;
     qBox.innerHTML=h;
   }
   function loadSpeaker(){
@@ -423,7 +423,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     if(e.target.closest('.qprev')){ if(qi>0){ qi--; qst[qi]=''; loadSpeaker(); start() } return }
     // ◀ ▶ : 한 명씩 / ◀◀ ▶▶ : 1·11·21·31…번으로 맞춰 10명씩 (보기만 이동)
     const n=e.target.closest('.qnav'); if(n){
-      if(n.dataset.jump==='10') view=Math.floor(view/10)*10+10;
+      // 다음 10명 묶음이 없으면 마지막 5명이 보이도록
+      if(n.dataset.jump==='10'){ const t=Math.floor(view/10)*10+10; view=Math.min(t,Math.max(0,Q.length-5)) }
       else if(n.dataset.jump==='-10') view = view%10 ? view-view%10 : view-10;
       else view+=+n.dataset.d;
       renderQ(); return }
