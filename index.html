@@ -607,6 +607,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pull(false) });
   }
 
+  // 처음 열었을 때 화면을 한 번 누르지 않아도 단축키가 듣도록, 키보드 입력을 받을 곳을 미리 정해 둠
+  app.tabIndex=-1; app.style.outline='none';
+  function grabKeys(){ const a=document.activeElement;
+    if(!a || a===document.body || a===document.documentElement){ try{ window.focus(); app.focus({preventScroll:true}) }catch(e){} } }
+  addEventListener('load',grabKeys); addEventListener('pageshow',grabKeys); addEventListener('focus',grabKeys);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') grabKeys() });
+  setTimeout(grabKeys,0);
   setTotal(total);
   if(Q.length && qi<Q.length) loadSpeaker(); else renderQ();
 })();
