@@ -117,6 +117,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 .qcard .qtag{font-size:.45em;font-weight:500;background:#000000;color:#ffffff;padding:1px 4px}
 .qcard{height:60px;width:clamp(88px,10vw,176px);padding:0 8px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
   font-family:var(--font);font-weight:700;font-size:clamp(16px,1.8vw,30px);color:#000000;white-space:nowrap;overflow:hidden}
+.queue{touch-action:pan-y} .qcard{-webkit-user-select:none;user-select:none}
 .qcard.s30{background:#ffffff} .qcard.s45{background:#ffd21f} .qcard.sx{background:#c9c9c9}
 .qcard .qn{font-size:1em;font-weight:700}
 .qcard.cur{opacity:1;outline:4px solid var(--green);outline-offset:3px}
@@ -419,7 +420,18 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     setTotal(it.sec); qmode=true; view=Math.max(0,Math.min(qi,Q.length-5)); saveQ(); renderQ();
   }
   function advance(mark){ if(qi<Q.length){ qst[qi]=mark; qi++ } loadSpeaker() }
+  // 손으로 밀어서 명단 넘기기 : 카드 위에서 좌우로 끌면 카드 한 장 폭만큼 끌 때마다 한 명씩 이동 (보기만 이동)
+  let drag=null, dragged=false;
+  qBox.addEventListener('pointerdown',e=>{ const c=e.target.closest('.qcard'); if(!c) return;
+    drag={x:e.clientX, w:c.getBoundingClientRect().width, moved:false}; dragged=false });
+  addEventListener('pointermove',e=>{ if(!drag) return; const dx=e.clientX-drag.x;
+    if(Math.abs(dx)>8) drag.moved=true;
+    if(Math.abs(dx)>=drag.w){ const nv=Math.max(0,Math.min(view+(dx<0?1:-1),Q.length-5));
+      if(nv!==view){ view=nv; renderQ() } drag.x=e.clientX } });
+  const endDrag=()=>{ if(drag&&drag.moved) dragged=true; drag=null };
+  addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
   qBox.addEventListener('click',e=>{
+    if(dragged){ dragged=false; return } // 끌어서 넘긴 경우에는 카드 누름(카운트 시작)으로 치지 않음
     // 패스 : 결석 처리하고 다음 사람 카운트를 바로 시작
     if(e.target.closest('.qpass')){ if(qi<Q.length){ const started=qmode&&(running||over||remainMs<total*1000); advance(started?'done':'pass'); if(qi<Q.length) start() } return }
     // 다음 : 지금 사람을 끝내고 다음 사람 카운트를 바로 시작
