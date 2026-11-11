@@ -126,13 +126,14 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 .qedit{width:100%;box-sizing:border-box;contain:inline-size}
 .editor .qhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .qstat{font-size:13px;color:var(--muted)} .qstat.err{color:var(--red)} .qstat.ok{color:var(--green)}
-.qedit{max-height:360px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 8px;padding:4px;border:1px solid var(--line);background:var(--bg)}
-.qrow{display:flex;align-items:center;gap:3px;min-width:0}
+.qedit{overflow-x:auto;overflow-y:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:3px 8px;padding:4px;border:1px solid var(--line);background:var(--bg)}
+.qrow{display:flex;align-items:center;gap:3px;min-width:0;height:30px}
 .qrow .n{width:20px;flex:none;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
-.editor .qrow input.nm{width:auto;flex:1;min-width:56px;font-size:16px;text-align:left;padding:4px 6px}
-.editor .qrow select{padding:4px 2px;font-size:15px;width:64px;flex:none}
+.editor .qrow input.nm{width:auto;flex:1;min-width:56px;font-size:16px;text-align:left;padding:0 6px;height:28px;box-sizing:border-box}
+/* 아이패드 사파리는 선택 칸을 크고 둥글게 그려 줄 높이가 커지므로 기본 모양을 끄고 높이를 고정 */
+.editor .qrow select{-webkit-appearance:none;appearance:none;border-radius:0;padding:0 4px;font-size:16px;width:64px;height:28px;box-sizing:border-box;text-align:center;text-align-last:center;flex:none;cursor:pointer}
 .qrow.t30 select{background:#ffffff;color:#000000} .qrow.t45 select{background:#ffd21f;color:#000000}
-.qrow .mv{background:var(--chip);color:var(--chip-fg);width:22px;height:30px;font-size:13px;padding:0;flex:none}
+.qrow .mv{background:var(--chip);color:var(--chip-fg);width:22px;height:28px;font-size:13px;padding:0;flex:none}
 .qrow .mv.del{color:var(--red)}
 .editor .cloud{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .editor .cloud input{width:150px;font-size:15px;text-align:left}
@@ -343,7 +344,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     if(k && SOUNDS[k]){ soundKey=k; selSound.value=k; try{localStorage.setItem('timer-sound',k)}catch(e){} }
     setTotal(+b.dataset.s); qmode=false; renderQ(); start();
   }));
-  btnEdit.addEventListener('click',()=>{ inMin.value=Math.floor(total/60); inSec.value=total%60; editor.hidden=!editor.hidden; if(!editor.hidden) openEditor(); if(!editor.hidden) inMin.focus() });
+  btnEdit.addEventListener('click',()=>{ inMin.value=Math.floor(total/60); inSec.value=total%60; editor.hidden=!editor.hidden; if(!editor.hidden) openEditor() }); // 아이패드에서 키보드 막대가 떠 화면이 줄어들지 않도록 자동 커서는 두지 않음
   function applyEdit(){
     const m=Math.max(0,Math.min(9,parseInt(inMin.value,10)||0)), s=Math.max(0,Math.min(59,parseInt(inSec.value,10)||0));
     if(m*60+s<=0){ inSec.focus(); return }
