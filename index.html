@@ -468,8 +468,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   // ----- 편집 화면 -----
   function renderEdit(){
     qEdit.innerHTML=draft.map((it,i)=>`<div class="qrow ${it.sec===30?'t30':it.sec===45?'t45':''}" data-i="${i}">
-      <span class="n">${i+1}</span><input class="nm" value="${esc(it.name)}" aria-label="${i+1}번 이름">
-      <button class="tg" aria-label="${i+1}번 시간, 눌러서 30초·45초 바꾸기">${secText(it.sec)}</button><button class="mv del" data-a="del" aria-label="${i+1}번 삭제">✕</button></div>`).join('');
+      <span class="n">${i+1}</span><button class="tg" aria-label="${i+1}번 시간, 눌러서 30초·45초 바꾸기">${secText(it.sec)}</button>
+      <input class="nm" value="${esc(it.name)}" aria-label="${i+1}번 이름"><button class="mv del" data-a="del" aria-label="${i+1}번 삭제">✕</button></div>`).join('');
     layoutEdit();
   }
   // 위에서 아래로 10명씩 채우고 옆 줄로 넘어감 (1~10, 11~20, 21~30 …). 줄이 화면보다 많으면 옆으로 밀어서 봄
