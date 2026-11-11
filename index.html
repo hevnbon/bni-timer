@@ -404,13 +404,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     const nextTen=Math.floor(view/10)*10+10;
     let h=`<button class="ctl qprev" id="btnPrev" ${qi<=0?'disabled':''}>이전<span class="kbd">B</span></button>`
          +`<button class="ctl qnext" id="btnNext">다음<small>(${Math.min(qi+1,Q.length)}/${Q.length})</small><span class="kbd">N</span></button>`
-         +`<span class="qsp"></span><button class="qnav qfirst" data-jump="-10" aria-label="10명 앞으로" ${view<=0?'disabled':''}>◀◀</button><button class="qnav" data-d="-1" aria-label="앞 사람 보기" ${view<=0?'disabled':''}>◀</button>`;
+         +`<span class="qsp"></span><button class="qnav qfirst" data-jump="-10" aria-label="5명 앞으로" ${view<=0?'disabled':''}>◀◀</button><button class="qnav" data-d="-1" aria-label="앞 사람 보기" ${view<=0?'disabled':''}>◀</button>`;
     if(qi>=Q.length) h+=`<span class="qend">발표 끝</span>`;
     for(let i=view;i<Math.min(Q.length,view+5);i++){ const it=Q[i], c=it.sec===30?'s30':it.sec===45?'s45':'sx';
       const tag=qst[i]==='pass'&&i<qi?'<span class="qtag">패스</span>':'';
       h+=`<button class="qcard ${c}${i===qi?' cur':''}${i<qi?' past':''}" data-i="${i}"><span class="qn">${i+1}</span>${esc(it.name)}${tag}</button>` }
     h+=`<button class="qnav" data-d="1" aria-label="뒤 사람 보기" ${view+5>=Q.length?'disabled':''}>▶</button>`
-       +`<button class="qnav qfirst" data-jump="10" aria-label="10명 뒤로" ${view>=Q.length-5?'disabled':''}>▶▶</button>`;
+       +`<button class="qnav qfirst" data-jump="10" aria-label="5명 뒤로" ${view>=Q.length-5?'disabled':''}>▶▶</button>`;
     qBox.innerHTML=h;
   }
   function loadSpeaker(){
@@ -426,11 +426,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     if(e.target.closest('.qnext')){ if(qi<Q.length){ advance('done'); if(qi<Q.length) start() } return }
     // 이전 : 실수로 넘긴 경우 앞 사람으로 되돌려 카운트를 바로 시작
     if(e.target.closest('.qprev')){ if(qi>0){ qi--; qst[qi]=''; loadSpeaker(); start() } return }
-    // ◀ ▶ : 한 명씩 / ◀◀ ▶▶ : 1·11·21·31…번으로 맞춰 10명씩 (보기만 이동)
+    // ◀ ▶ : 한 명씩 / ◀◀ ▶▶ : 1·6·11·16…번으로 맞춰 5명씩 (보기만 이동)
     const n=e.target.closest('.qnav'); if(n){
-      // 다음 10명 묶음이 없으면 마지막 5명이 보이도록
-      if(n.dataset.jump==='10'){ const t=Math.floor(view/10)*10+10; view=Math.min(t,Math.max(0,Q.length-5)) }
-      else if(n.dataset.jump==='-10') view = view%10 ? view-view%10 : view-10;
+      // 다음 5명 묶음이 없으면 마지막 5명이 보이도록
+      if(n.dataset.jump==='10'){ const t=Math.floor(view/5)*5+5; view=Math.min(t,Math.max(0,Q.length-5)) }
+      else if(n.dataset.jump==='-10') view = view%5 ? view-view%5 : view-5;
       else view+=+n.dataset.d;
       renderQ(); return }
     // 이름 : 그 사람으로 이동해 바로 시작
