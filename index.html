@@ -115,9 +115,18 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 .qnav:disabled{opacity:.3;cursor:default}
 .qcard.past{opacity:.45}
 .qcard .qtag{font-size:.45em;font-weight:500;background:#000000;color:#ffffff;padding:1px 4px}
-.qcard{height:60px;width:clamp(88px,10vw,176px);padding:0 8px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+.qcard{height:60px;width:var(--cw);padding:0 8px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
   font-family:var(--font);font-weight:700;font-size:clamp(16px,1.8vw,30px);color:#000000;white-space:nowrap;overflow:hidden}
-.queue{touch-action:pan-y} .qcard{-webkit-user-select:none;user-select:none}
+.queue{--cw:clamp(88px,10vw,176px);--cg:6px} .qcard{-webkit-user-select:none;user-select:none}
+.qstrip{display:flex;gap:var(--cg);flex:none;overflow-x:auto;overflow-y:hidden;box-sizing:border-box;padding:0;
+  width:calc(5*var(--cw) + 4*var(--cg));max-width:100%;scroll-snap-type:x mandatory;
+  touch-action:pan-x;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none}
+.qstrip::-webkit-scrollbar{display:none}
+.qstrip .qcard{flex:none;scroll-snap-align:start}
+/* 창 밖으로 테두리가 삐져나와 옆 사람이 살짝 보이지 않도록 현재 발표자 표시는 카드 안쪽에 그림 */
+.qstrip .qcard.cur{outline:none;box-shadow:inset 0 0 0 5px var(--green)}
+.queue.idle .qstrip .qcard.cur{box-shadow:inset 0 0 0 5px var(--muted)}
+.qstrip.dragging{scroll-snap-type:none;cursor:grabbing}
 .qcard.s30{background:#ffffff} .qcard.s45{background:#ffd21f} .qcard.sx{background:#c9c9c9}
 .qcard .qn{font-size:1em;font-weight:700}
 .qcard.cur{opacity:1;outline:4px solid var(--green);outline-offset:3px}
@@ -397,22 +406,37 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     if(name) out.push({name,sec}); }); return out }
   function qSound(sec){ const b=document.querySelector(`.pre[data-s="${sec}"]`); return b?b.dataset.sound:'digital' }
   function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
-  let view=0; // 화면에 보이는 5명 중 첫 사람의 순번 (화살표로 앞뒤 이동)
+  let view=0; // 화면에 보이는 5명 중 첫 사람의 순번
+  // 명단 전체를 한 줄로 늘어놓고 5명 폭의 창으로 보여 줌. 손가락·마우스로 부드럽게 밀 수 있음
+  const pitch=()=>{ const c=qBox.querySelectorAll('.qstrip .qcard'); return c.length>1 ? c[1].offsetLeft-c[0].offsetLeft : 1 };
+  function navSync(){ const lo=view<=0, hi=view>=Q.length-5;
+    qBox.querySelectorAll('[data-d="-1"],[data-jump="-10"]').forEach(b=>b.disabled=lo);
+    qBox.querySelectorAll('[data-d="1"],[data-jump="10"]').forEach(b=>b.disabled=hi) }
+  function scrollToView(v,smooth){ view=Math.max(0,Math.min(v,Math.max(0,Q.length-5))); navSync();
+    const s=qBox.querySelector('.qstrip'); if(s) s.scrollTo({left:view*pitch(),behavior:smooth?'smooth':'auto'}) }
   function renderQ(){
     if(!Q.length){ qBox.innerHTML=''; return }
     qBox.classList.toggle('idle',!qmode);
-    view=Math.max(0,Math.min(view,Q.length-1));
-    const nextTen=Math.floor(view/10)*10+10;
+    view=Math.max(0,Math.min(view,Math.max(0,Q.length-5)));
+    const old=qBox.querySelector('.qstrip'), prevLeft=old?old.scrollLeft:null;
     let h=`<button class="ctl qprev" id="btnPrev" ${qi<=0?'disabled':''}>이전<span class="kbd">B</span></button>`
          +`<button class="ctl qnext" id="btnNext">다음<small>(${Math.min(qi+1,Q.length)}/${Q.length})</small><span class="kbd">N</span></button>`
-         +`<span class="qsp"></span><button class="qnav qfirst" data-jump="-10" aria-label="5명 앞으로" ${view<=0?'disabled':''}>◀◀</button><button class="qnav" data-d="-1" aria-label="앞 사람 보기" ${view<=0?'disabled':''}>◀</button>`;
+         +`<span class="qsp"></span><button class="qnav qfirst" data-jump="-10" aria-label="5명 앞으로">◀◀</button><button class="qnav" data-d="-1" aria-label="앞 사람 보기">◀</button>`;
     if(qi>=Q.length) h+=`<span class="qend">발표 끝</span>`;
-    for(let i=view;i<Math.min(Q.length,view+5);i++){ const it=Q[i], c=it.sec===30?'s30':it.sec===45?'s45':'sx';
+    h+='<div class="qstrip">';
+    Q.forEach((it,i)=>{ const c=it.sec===30?'s30':it.sec===45?'s45':'sx';
       const tag=qst[i]==='pass'&&i<qi?'<span class="qtag">패스</span>':'';
-      h+=`<button class="qcard ${c}${i===qi?' cur':''}${i<qi?' past':''}" data-i="${i}"><span class="qn">${i+1}</span>${esc(it.name)}${tag}</button>` }
-    h+=`<button class="qnav" data-d="1" aria-label="뒤 사람 보기" ${view+5>=Q.length?'disabled':''}>▶</button>`
-       +`<button class="qnav qfirst" data-jump="10" aria-label="5명 뒤로" ${view>=Q.length-5?'disabled':''}>▶▶</button>`;
+      h+=`<button class="qcard ${c}${i===qi?' cur':''}${i<qi?' past':''}" data-i="${i}"><span class="qn">${i+1}</span>${esc(it.name)}${tag}</button>` });
+    h+='</div>';
+    h+=`<button class="qnav" data-d="1" aria-label="뒤 사람 보기">▶</button>`
+       +`<button class="qnav qfirst" data-jump="10" aria-label="5명 뒤로">▶▶</button>`;
     qBox.innerHTML=h;
+    const s=qBox.querySelector('.qstrip'), target=view*pitch();
+    // 다시 그려도 보던 자리에서 새 자리로 미끄러지듯 이동
+    if(prevLeft!==null){ s.scrollLeft=prevLeft; if(Math.abs(prevLeft-target)>1) s.scrollTo({left:target,behavior:Math.abs(prevLeft-target)<=pitch()*6?'smooth':'auto'}) }
+    else s.scrollLeft=target;
+    navSync();
+    s.addEventListener('scroll',()=>{ const v=Math.round(s.scrollLeft/pitch()); if(v!==view){ view=v; navSync() } },{passive:true});
   }
   function loadSpeaker(){
     if(qi>=Q.length){ qmode=false; saveQ(); renderQ(); return }
@@ -420,15 +444,16 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     setTotal(it.sec); qmode=true; view=Math.max(0,Math.min(qi,Q.length-5)); saveQ(); renderQ();
   }
   function advance(mark){ if(qi<Q.length){ qst[qi]=mark; qi++ } loadSpeaker() }
-  // 손으로 밀어서 명단 넘기기 : 카드 위에서 좌우로 끌면 카드 한 장 폭만큼 끌 때마다 한 명씩 이동 (보기만 이동)
+  // 마우스로 끌기 (아이패드·휴대폰은 손가락으로 미는 기본 스크롤을 그대로 씀)
   let drag=null, dragged=false;
-  qBox.addEventListener('pointerdown',e=>{ const c=e.target.closest('.qcard'); if(!c) return;
-    drag={x:e.clientX, w:c.getBoundingClientRect().width, moved:false}; dragged=false });
+  qBox.addEventListener('pointerdown',e=>{ dragged=false; const s=e.target.closest('.qstrip'); if(!s||e.pointerType!=='mouse') return;
+    drag={s,x:e.clientX,left:s.scrollLeft,moved:false} });
   addEventListener('pointermove',e=>{ if(!drag) return; const dx=e.clientX-drag.x;
-    if(Math.abs(dx)>8) drag.moved=true;
-    if(Math.abs(dx)>=drag.w){ const nv=Math.max(0,Math.min(view+(dx<0?1:-1),Q.length-5));
-      if(nv!==view){ view=nv; renderQ() } drag.x=e.clientX } });
-  const endDrag=()=>{ if(drag&&drag.moved) dragged=true; drag=null };
+    if(!drag.moved && Math.abs(dx)>6){ drag.moved=true; drag.s.classList.add('dragging') }
+    if(drag.moved) drag.s.scrollLeft=drag.left-dx });
+  const endDrag=()=>{ if(!drag) return;
+    if(drag.moved){ dragged=true; const v=Math.round(drag.s.scrollLeft/pitch()); drag.s.classList.remove('dragging'); scrollToView(v,true) }
+    drag=null };
   addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
   qBox.addEventListener('click',e=>{
     if(dragged){ dragged=false; return } // 끌어서 넘긴 경우에는 카드 누름(카운트 시작)으로 치지 않음
@@ -438,13 +463,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     if(e.target.closest('.qnext')){ if(qi<Q.length){ advance('done'); if(qi<Q.length) start() } return }
     // 이전 : 실수로 넘긴 경우 앞 사람으로 되돌려 카운트를 바로 시작
     if(e.target.closest('.qprev')){ if(qi>0){ qi--; qst[qi]=''; loadSpeaker(); start() } return }
-    // ◀ ▶ : 한 명씩 / ◀◀ ▶▶ : 1·6·11·16…번으로 맞춰 5명씩 (보기만 이동)
-    const n=e.target.closest('.qnav'); if(n){
-      // 다음 5명 묶음이 없으면 마지막 5명이 보이도록
-      if(n.dataset.jump==='10'){ const t=Math.floor(view/5)*5+5; view=Math.min(t,Math.max(0,Q.length-5)) }
-      else if(n.dataset.jump==='-10') view = view%5 ? view-view%5 : view-5;
-      else view+=+n.dataset.d;
-      renderQ(); return }
+    // ◀ ▶ : 한 명씩 / ◀◀ ▶▶ : 1·6·11·16…번으로 맞춰 5명씩 (보기만 이동, 부드럽게)
+    const n=e.target.closest('.qnav'); if(n){ let v=view;
+      if(n.dataset.jump==='10') v=Math.floor(view/5)*5+5;   // 다음 5명 묶음이 없으면 마지막 5명
+      else if(n.dataset.jump==='-10') v = view%5 ? view-view%5 : view-5;
+      else v+=+n.dataset.d;
+      scrollToView(v,true); return }
     // 이름 : 그 사람으로 이동해 바로 시작
     const c=e.target.closest('.qcard'); if(c){ qi=+c.dataset.i; loadSpeaker(); start() }
   });
