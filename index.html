@@ -126,16 +126,16 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 .qedit{width:100%;box-sizing:border-box;contain:inline-size}
 .editor .qhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .qstat{font-size:13px;color:var(--muted)} .qstat.err{color:var(--red)} .qstat.ok{color:var(--green)}
-.qedit{overflow-x:auto;overflow-y:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:3px 8px;padding:4px;border:1px solid var(--line);background:var(--bg)}
-.qrow{display:flex;align-items:center;gap:3px;min-width:0;height:30px}
-.qrow .n{width:20px;flex:none;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
-.editor .qrow input.nm{width:auto;flex:1;min-width:56px;font-size:16px;text-align:left;padding:0 6px;height:28px;box-sizing:border-box}
+.qedit{overflow-x:auto;overflow-y:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:3px 8px;justify-content:space-between;padding:4px 6px;border:1px solid var(--line);background:var(--bg)}
+.qrow{display:flex;align-items:center;gap:2px;min-width:0;height:30px}
+.qrow .n{width:18px;margin-right:2px;flex:none;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.editor .qrow input.nm{width:5em;flex:none;min-width:0;font-size:16px;text-align:left;padding:0 6px;height:28px;box-sizing:border-box}
 /* 아이패드 사파리는 선택 칸을 크고 둥글게 그려 줄 높이가 커지므로 기본 모양을 끄고 높이를 고정 */
 .editor .qrow select{-webkit-appearance:none;appearance:none;border-radius:0;padding:0 4px;font-size:16px;width:64px;height:28px;box-sizing:border-box;text-align:center;text-align-last:center;flex:none;cursor:pointer}
 .qrow.t30 select{background:#ffffff;color:#000000} .qrow.t45 select{background:#ffd21f;color:#000000}
-.qrow .mv{background:var(--chip);color:var(--chip-fg);width:22px;height:28px;font-size:13px;padding:0;flex:none}
+.qrow .mv{background:var(--chip);color:var(--chip-fg);width:20px;height:28px;font-size:13px;padding:0;flex:none}
 .qrow .mv.del{color:var(--red)}
-.qrow .tg{width:60px;height:28px;flex:none;padding:0;font-family:var(--font);font-size:16px;font-weight:700;background:#c9c9c9;color:#000000}
+.qrow .tg{width:56px;height:28px;flex:none;padding:0;font-family:var(--font);font-size:16px;font-weight:700;background:#c9c9c9;color:#000000}
 .qrow.t30 .tg{background:#ffffff} .qrow.t45 .tg{background:#ffd21f}
 .editor .cloud{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .editor .cloud input{width:150px;font-size:15px;text-align:left}
@@ -476,7 +476,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   function layoutEdit(){
     if(editor.hidden) return;
     const cols=Math.max(1,Math.ceil(draft.length/10));
-    qEdit.style.gridTemplateColumns=`repeat(${cols},minmax(176px,1fr))`;
+    qEdit.style.gridTemplateColumns=`repeat(${cols},max-content)`; // 줄 폭은 내용(이름 네 자)만큼
     qEdit.style.gridTemplateRows=`repeat(${Math.max(1,Math.min(10,draft.length))},auto)`;
     qEdit.style.gridAutoFlow='column';
   }
