@@ -122,6 +122,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   width:calc(5*var(--cw) + 4*var(--cg));max-width:100%;scroll-snap-type:x mandatory;
   touch-action:pan-x;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none}
 .qstrip::-webkit-scrollbar{display:none}
+.gate{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:rgba(0,0,0,.78);color:#ffffff;font-family:var(--font);text-align:center;cursor:pointer;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.gate b{font-size:clamp(24px,3.4vw,40px);color:#ffd21f} .gate span{font-size:clamp(15px,1.8vw,20px);opacity:.85}
 .qstrip .qcard{flex:none;scroll-snap-align:start}
 /* 창 밖으로 테두리가 삐져나와 옆 사람이 살짝 보이지 않도록 현재 발표자 표시는 카드 안쪽에 그림 */
 .qstrip .qcard.cur{outline:none;box-shadow:inset 0 0 0 5px var(--green)}
@@ -162,6 +166,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 <body>
 
 <div class="app" id="app">
+  <div class="gate" id="tapGate" hidden><b>화면을 한 번 눌러 주세요</b><span>키보드 단축키와 알람 소리가 켜집니다</span></div>
   <div class="display"><svg id="lcd" viewBox="-16 -4 406 188" aria-hidden="true" hidden></svg><div class="num" id="num" role="img" aria-label="남은 시간"></div></div>
   <div class="bottom">
     <div class="editor" id="editor" hidden>
@@ -614,6 +619,16 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   addEventListener('load',grabKeys); addEventListener('pageshow',grabKeys); addEventListener('focus',grabKeys);
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') grabKeys() });
   setTimeout(grabKeys,0);
+  // 아이패드·휴대폰은 화면을 한 번 누르기 전에는 연결된 키보드 입력과 소리를 받지 않음(기기 정책).
+  // 그래서 처음에 '한 번 눌러 주세요' 안내를 띄우고, 그 한 번으로 키보드와 소리를 함께 켬
+  const gate=document.getElementById('tapGate');
+  if(navigator.maxTouchPoints>0){
+    gate.hidden=false;
+    const openGate=e=>{ if(gate.hidden) return; gate.hidden=true; unlockAudio(); grabKeys(); try{ app.focus({preventScroll:true}) }catch(_){}
+      if(e.type==='pointerdown'){ e.preventDefault(); e.stopPropagation() } };
+    gate.addEventListener('pointerdown',openGate);
+    document.addEventListener('keydown',openGate,true); // 키보드가 이미 듣는 경우엔 키 한 번으로도 닫힘
+  }
   setTotal(total);
   if(Q.length && qi<Q.length) loadSpeaker(); else renderQ();
 })();
