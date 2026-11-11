@@ -123,10 +123,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 .queue.idle .qcard.cur{outline-color:var(--muted)}
 .qend{color:var(--text);font-size:18px;padding:0 8px;white-space:nowrap}
 .editor .qbox{min-width:0;width:100%}
-.qedit{width:100%;box-sizing:border-box;contain:inline-size}
+.qedit{box-sizing:border-box;max-width:100%}
 .editor .qhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .qstat{font-size:13px;color:var(--muted)} .qstat.err{color:var(--red)} .qstat.ok{color:var(--green)}
-.qedit{overflow-x:auto;overflow-y:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:3px 8px;justify-content:space-between;padding:4px 6px;border:1px solid var(--line);background:var(--bg)}
+.qedit{overflow-x:auto;overflow-y:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:3px 24px;padding:4px 10px;border:1px solid var(--line);background:var(--bg)}
 .qrow{display:flex;align-items:center;gap:2px;min-width:0;height:30px}
 .qrow .n{width:18px;margin-right:2px;flex:none;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .editor .qrow input.nm{width:5em;flex:none;min-width:0;font-size:16px;text-align:left;padding:0 6px;height:28px;box-sizing:border-box}
@@ -479,6 +479,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     qEdit.style.gridTemplateColumns=`repeat(${cols},max-content)`; // 줄 폭은 내용(이름 네 자)만큼
     qEdit.style.gridTemplateRows=`repeat(${Math.max(1,Math.min(10,draft.length))},auto)`;
     qEdit.style.gridAutoFlow='column';
+    // 명단 폭만큼만 편집 창을 넓힘. 화면이 좁으면 줄 사이 간격부터 줄임
+    qEdit.style.width='max-content'; qEdit.style.columnGap='24px';
+    const avail=Math.min(1240,editor.parentElement.clientWidth)-30; // 30 : 편집 창 좌우 여백과 테두리
+    const need=()=>qEdit.scrollWidth+2; // 잘려 보이는 부분까지 포함한 명단 전체 폭
+    let w=need();
+    if(w>avail && cols>1){ qEdit.style.columnGap=Math.max(6,24-Math.ceil((w-avail)/(cols-1)))+'px'; w=need() }
+    editor.style.width=Math.min(Math.max(Math.ceil(w)+30,760),avail+30)+'px';
   }
   addEventListener('resize',layoutEdit);
   function openEditor(){
