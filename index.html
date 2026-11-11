@@ -135,6 +135,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 .qrow.t30 select{background:#ffffff;color:#000000} .qrow.t45 select{background:#ffd21f;color:#000000}
 .qrow .mv{background:var(--chip);color:var(--chip-fg);width:22px;height:28px;font-size:13px;padding:0;flex:none}
 .qrow .mv.del{color:var(--red)}
+.qrow .tg{width:60px;height:28px;flex:none;padding:0;font-family:var(--font);font-size:16px;font-weight:700;background:#c9c9c9;color:#000000}
+.qrow.t30 .tg{background:#ffffff} .qrow.t45 .tg{background:#ffd21f}
 .editor .cloud{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .editor .cloud input{width:150px;font-size:15px;text-align:left}
 .editor .cloud .hint{font-size:12px;color:var(--muted)}
@@ -441,7 +443,6 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   const API=`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
   const qEdit=document.getElementById('qEdit'), qStat=document.getElementById('qStat'), toastEl=document.getElementById('toast');
   const ghName=document.getElementById('ghName'), ghKey=document.getElementById('ghKey');
-  const TIMES=[30,45,60,300,480];
   let draft=[], dirty=false, sha=null, etag=null, remoteStamp=null, remotePending=null, saving=false;
   const ls={get:k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
   ghName.value=ls.get('gh-name'); ghKey.value=ls.get('gh-key');
@@ -468,15 +469,14 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   function renderEdit(){
     qEdit.innerHTML=draft.map((it,i)=>`<div class="qrow ${it.sec===30?'t30':it.sec===45?'t45':''}" data-i="${i}">
       <span class="n">${i+1}</span><input class="nm" value="${esc(it.name)}" aria-label="${i+1}번 이름">
-      <select aria-label="${i+1}번 시간">${(TIMES.includes(it.sec)?TIMES:[...TIMES,it.sec]).map(t=>`<option value="${t}" ${t===it.sec?'selected':''}>${secText(t)}</option>`).join('')}</select>
-      <button class="mv" data-a="up" aria-label="위로">▲</button><button class="mv" data-a="down" aria-label="아래로">▼</button><button class="mv del" data-a="del" aria-label="삭제">✕</button></div>`).join('');
+      <button class="tg" aria-label="${i+1}번 시간, 눌러서 30초·45초 바꾸기">${secText(it.sec)}</button><button class="mv del" data-a="del" aria-label="${i+1}번 삭제">✕</button></div>`).join('');
     layoutEdit();
   }
   // 위에서 아래로 10명씩 채우고 옆 줄로 넘어감 (1~10, 11~20, 21~30 …). 줄이 화면보다 많으면 옆으로 밀어서 봄
   function layoutEdit(){
     if(editor.hidden) return;
     const cols=Math.max(1,Math.ceil(draft.length/10));
-    qEdit.style.gridTemplateColumns=`repeat(${cols},minmax(232px,1fr))`;
+    qEdit.style.gridTemplateColumns=`repeat(${cols},minmax(176px,1fr))`;
     qEdit.style.gridTemplateRows=`repeat(${Math.max(1,Math.min(10,draft.length))},auto)`;
     qEdit.style.gridAutoFlow='column';
   }
@@ -490,14 +490,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   function markDirty(){ dirty=true; stat('저장하지 않은 변경이 있습니다') }
   qEdit.addEventListener('input',e=>{ const r=e.target.closest('.qrow'); if(!r) return;
     if(e.target.classList.contains('nm')){ draft[+r.dataset.i].name=e.target.value; markDirty() } });
-  qEdit.addEventListener('change',e=>{ const r=e.target.closest('.qrow'); if(!r||e.target.tagName!=='SELECT') return;
-    const sec=+e.target.value; draft[+r.dataset.i].sec=sec; r.classList.toggle('t30',sec===30); r.classList.toggle('t45',sec===45); markDirty() });
-  qEdit.addEventListener('click',e=>{ const b=e.target.closest('.mv'); if(!b) return; const i=+b.closest('.qrow').dataset.i;
-    if(b.dataset.a==='up'&&i>0) [draft[i-1],draft[i]]=[draft[i],draft[i-1]];
-    else if(b.dataset.a==='down'&&i<draft.length-1) [draft[i+1],draft[i]]=[draft[i],draft[i+1]];
-    else if(b.dataset.a==='del') draft.splice(i,1);
-    else return;
-    markDirty(); renderEdit() });
+  qEdit.addEventListener('click',e=>{
+    // 시간 버튼 : 누를 때마다 30초 ↔ 45초
+    const t=e.target.closest('.tg');
+    if(t){ const r=t.closest('.qrow'), it=draft[+r.dataset.i]; it.sec = it.sec===30 ? 45 : 30;
+      t.textContent=secText(it.sec); r.classList.toggle('t30',it.sec===30); r.classList.toggle('t45',it.sec===45); markDirty(); return }
+    const b=e.target.closest('.mv'); if(!b) return; const i=+b.closest('.qrow').dataset.i;
+    if(b.dataset.a==='del'){ draft.splice(i,1); markDirty(); renderEdit() } });
   document.getElementById('qAdd').addEventListener('click',()=>{ draft.push({name:'',sec:30}); markDirty(); renderEdit();
     const last=qEdit.querySelector('.qrow:last-child .nm'); if(last){ last.focus(); last.scrollIntoView({block:'nearest'}) } });
   document.getElementById('qPasteT').addEventListener('click',()=>{ const b=document.getElementById('qPasteBox'); b.hidden=!b.hidden; if(!b.hidden){ qText.value=fmtQ(); qText.focus() } });
