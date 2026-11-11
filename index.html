@@ -293,8 +293,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 
   // ---------- 알람 ----------
   let ctx=null, master=null, alarmTimer=null, alarmStop=null;
-  let soundKey='xylophone', repeatMode='15', testKey=null; // testKey : 테스트 버튼으로 잠깐 쓰는 소리
-  try{ soundKey=localStorage.getItem('timer-sound')||soundKey; repeatMode=localStorage.getItem('timer-repeat')||repeatMode }catch(e){}
+  let soundKey='xylophone', repeatMode='loop', testKey=null; // 반복 기본값 : 끌 때까지 // testKey : 테스트 버튼으로 잠깐 쓰는 소리
+  try{ soundKey=localStorage.getItem('timer-sound')||soundKey; repeatMode=localStorage.getItem('timer-repeat-v2')||repeatMode }catch(e){}
   // 소리 장치 깨우기. 아이패드는 화면이 잠기거나 다른 앱·전화로 소리를 빼앗기면 소리 장치를 '멈춤(suspended·interrupted)'으로 바꿔 둠.
   // 예전에는 'suspended'일 때만 다시 켜서 'interrupted' 상태면 소리 없이 화면만 깜빡였음 → 'running'이 아니면 무조건 다시 켬
   let fb=null, fbPrimed=false;
@@ -402,7 +402,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   Object.entries(SOUNDS).forEach(([k,v])=>{ const o=document.createElement('option'); o.value=k; o.textContent=v.name; selSound.appendChild(o) });
   selSound.value=soundKey; selRepeat.value=repeatMode;
   selSound.addEventListener('change',()=>{ soundKey=selSound.value; try{localStorage.setItem('timer-sound',soundKey)}catch(e){} unlockAudio(); cutSound(); ring() });
-  selRepeat.addEventListener('change',()=>{ repeatMode=selRepeat.value; try{localStorage.setItem('timer-repeat',repeatMode)}catch(e){} });
+  selRepeat.addEventListener('change',()=>{ repeatMode=selRepeat.value; try{localStorage.setItem('timer-repeat-v2',repeatMode)}catch(e){} });
   document.getElementById('btnTest').addEventListener('click',()=>{ unlockAudio(); cutSound(); ring(selSound.value) });
   document.getElementById('editOk').addEventListener('click',applyEdit);
   document.getElementById('editCancel').addEventListener('click',()=>editor.hidden=true);
