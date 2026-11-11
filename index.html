@@ -445,7 +445,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   }
   function advance(mark){ if(qi<Q.length){ qst[qi]=mark; qi++ } loadSpeaker() }
   // 마우스로 끌기 (아이패드·휴대폰은 손가락으로 미는 기본 스크롤을 그대로 씀)
-  let drag=null, dragged=false;
+  let drag=null, dragged=false; let lastJump=null;
   qBox.addEventListener('pointerdown',e=>{ dragged=false; const s=e.target.closest('.qstrip'); if(!s||e.pointerType!=='mouse') return;
     drag={s,x:e.clientX,left:s.scrollLeft,moved:false} });
   addEventListener('pointermove',e=>{ if(!drag) return; const dx=e.clientX-drag.x;
@@ -464,10 +464,15 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
     // 이전 : 실수로 넘긴 경우 앞 사람으로 되돌려 카운트를 바로 시작
     if(e.target.closest('.qprev')){ if(qi>0){ qi--; qst[qi]=''; loadSpeaker(); start() } return }
     // ◀ ▶ : 한 명씩 / ◀◀ ▶▶ : 1·6·11·16…번으로 맞춰 5명씩 (보기만 이동, 부드럽게)
-    const n=e.target.closest('.qnav'); if(n){ let v=view;
-      if(n.dataset.jump==='10') v=Math.floor(view/5)*5+5;   // 다음 5명 묶음이 없으면 마지막 5명
-      else if(n.dataset.jump==='-10') v = view%5 ? view-view%5 : view-5;
-      else v+=+n.dataset.d;
+    const n=e.target.closest('.qnav'); if(n){ let v=view; const dir=n.dataset.jump, now=Date.now();
+      if(dir && lastJump && lastJump.dir===dir && now-lastJump.t<400){
+        // 빠르게 두 번 : 첫 번째 누르기 전 자리에서 1·11·21·31…번으로 맞춰 10명씩
+        const o=lastJump.from; v = dir==='10' ? Math.floor(o/10)*10+10 : (o%10 ? o-o%10 : o-10); lastJump=null }
+      else {
+        if(dir==='10') v=Math.floor(view/5)*5+5;   // 다음 5명 묶음이 없으면 마지막 5명
+        else if(dir==='-10') v = view%5 ? view-view%5 : view-5;
+        else v+=+n.dataset.d;
+        lastJump = dir ? {dir,t:now,from:view} : null }
       scrollToView(v,true); return }
     // 이름 : 그 사람으로 이동해 바로 시작
     const c=e.target.closest('.qcard'); if(c){ qi=+c.dataset.i; loadSpeaker(); start() }
