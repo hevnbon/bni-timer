@@ -337,7 +337,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
   btnGo.addEventListener('click',()=>{ if(ringing){stopAlarm(); if(qmode){ advance('done'); return } remainMs=total*1000; updateBtn(); render(); return}
     if(!running && qmode && qi<Q.length){ view=Math.max(0,Math.min(qi,Q.length-5)); renderQ() } // 시작·계속 시 현재 발표자를 맨 앞에
     running?pause():start() });
-  btnReset.addEventListener('click',reset);
+  // 재설정 : 발표 순서를 1번으로 되돌리고 1번 시간으로 맞춤 (타이머 수정의 '처음부터 다시'와 같음). 명단이 없으면 0:00
+  btnReset.addEventListener('click',()=>{
+    if(typeof Q!=='undefined' && Q.length){ stopAlarm(); pause(); qi=0; qst=[]; editor.hidden=true; loadSpeaker() }
+    else reset() });
   // 테스트 : 누를 때마다 버저 → 종소리 → 디지털 알람 순서로 2초 타이머 시작
   // 테스트 : 한 번 누르면 대기 상태
   //   → 1분·5분·8분 : 그 버튼의 알람 소리로 2초 테스트
